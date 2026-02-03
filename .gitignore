@@ -17,3 +17,5 @@ addons/nodetunnel/bin/*.rlib
 
 # MacOS
 **/.DS_Store
+
+.env
