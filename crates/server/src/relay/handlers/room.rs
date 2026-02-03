@@ -1,5 +1,5 @@
 use tracing::warn;
-use crate::protocol::packet::{Packet, RoomInfo};
+use nt_proto::packet::{Packet, RoomInfo};
 use crate::relay::apps::Apps;
 use crate::relay::clients::{ClientState, Clients};
 use crate::udp::common::TransferChannel;

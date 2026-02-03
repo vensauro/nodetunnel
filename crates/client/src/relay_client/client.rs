@@ -1,8 +1,7 @@
-use crate::protocol::packet::PacketType;
 use crate::relay_client::events::RelayEvent;
 use std::cmp::PartialEq;
 use std::time::Duration;
-use crate::protocol::version;
+use nt_proto::packet::Packet;
 use crate::relay_client::error::RelayClientError;
 use crate::transport::client::{ClientEvent, ClientTransport};
 use crate::transport::common::{Channel};
@@ -75,28 +74,28 @@ impl RelayClient {
     fn handle_packet(&mut self, data: Vec<u8>, channel: Channel) -> Result<Vec<RelayEvent>, RelayClientError> {
         let mut events = vec![];
 
-        if let Ok(packet_type) = PacketType::from_bytes(&data) {
+        if let Ok(packet_type) = Packet::from_bytes(&data) {
             match packet_type {
-                PacketType::ClientAuthenticated => {
+                Packet::ClientAuthenticated => {
                     self.client_state = ClientState::Authenticated;
                     events.push(RelayEvent::Authenticated);
                 }
-                PacketType::ConnectedToRoom { room_id, peer_id } =>
+                Packet::ConnectedToRoom { room_id, peer_id } =>
                     events.push(RelayEvent::RoomJoined { room_id, peer_id }),
-                PacketType::GetRooms { rooms } =>
+                Packet::GetRooms { rooms } =>
                     events.push(RelayEvent::RoomsReceived { rooms }),
-                PacketType::PeerJoinAttempt { target_id, metadata } =>
+                Packet::PeerJoinAttempt { target_id, metadata } =>
                     events.push(RelayEvent::PeerJoinAttempt { client_id: target_id, metadata } ),
-                PacketType::PeerJoinedRoom { peer_id } =>
+                Packet::PeerJoinedRoom { peer_id } =>
                     events.push(RelayEvent::PeerJoinedRoom { peer_id }),
-                PacketType::PeerLeftRoom { peer_id } =>
+                Packet::PeerLeftRoom { peer_id } =>
                     events.push(RelayEvent::PeerLeftRoom { peer_id }),
-                PacketType::GameData { from_peer, data } => {
+                Packet::GameData { from_peer, data } => {
                     events.push(RelayEvent::GameDataReceived { data, from_peer, channel });
                 }
-                PacketType::ForceDisconnect =>
+                Packet::ForceDisconnect =>
                     events.push(RelayEvent::ForceDisconnect),
-                PacketType::Error { error_code, error_message } =>
+                Packet::Error { error_code, error_message } =>
                     events.push(RelayEvent::Error { error_code, error_message }),
                 _ => {
                     return Err(RelayClientError::InvalidPacketType);
@@ -111,9 +110,9 @@ impl RelayClient {
 
     pub fn req_auth(&mut self, app_id: String) -> Result<(), RelayClientError> {
         self.send_packet(
-            PacketType::Authenticate {
+            Packet::Authenticate {
                 app_id,
-                version: version::PROTOCOL_VERSION.to_string()
+                version: nt_proto::version::PROTOCOL_VERSION.to_string()
             },
             Channel::Reliable
         )?;
@@ -123,7 +122,7 @@ impl RelayClient {
 
     pub fn req_create_room(&mut self, is_public: bool, metadata: String) -> Result<(), RelayClientError> {
         self.send_packet(
-            PacketType::CreateRoom {
+            Packet::CreateRoom {
                 is_public,
                 metadata,
             },
@@ -135,14 +134,14 @@ impl RelayClient {
 
     pub fn req_rooms(&mut self) -> Result<(), RelayClientError> {
         self.send_packet(
-            PacketType::ReqRooms,
+            Packet::ReqRooms,
             Channel::Reliable,
         )
     }
 
     pub fn req_join_room(&mut self, room_id: String, metadata: String) -> Result<(), RelayClientError> {
         self.send_packet(
-            PacketType::ReqJoin { room_id, metadata },
+            Packet::ReqJoin { room_id, metadata },
             Channel::Reliable
         )?;
 
@@ -151,7 +150,7 @@ impl RelayClient {
 
     pub fn req_update_room(&mut self, room_id: &str, metadata: &str) -> Result<(), RelayClientError> {
         self.send_packet(
-            PacketType::UpdateRoom { room_id: room_id.to_string(), metadata: metadata.to_string() },
+            Packet::UpdateRoom { room_id: room_id.to_string(), metadata: metadata.to_string() },
             Channel::Reliable
         )?;
 
@@ -160,7 +159,7 @@ impl RelayClient {
 
     pub fn send_join_response(&mut self, room_id: String, target_id: u64, allowed: bool) -> Result<(), RelayClientError> {
         self.send_packet(
-            PacketType::JoinRes {
+            Packet::JoinRes {
                 allowed,
                 room_id,
                 target_id
@@ -173,7 +172,7 @@ impl RelayClient {
 
     pub fn send_game_data(&mut self, peer_id: i32, data: Vec<u8>, channel: Channel) -> Result<(), RelayClientError> {
         self.send_packet(
-            PacketType::GameData { from_peer: peer_id, data },
+            Packet::GameData { from_peer: peer_id, data },
             channel
         )?;
 
@@ -184,7 +183,7 @@ impl RelayClient {
         self.transport.as_ref().map_or(false, |transport| transport.is_connected())
     }
 
-    fn send_packet(&mut self, packet_type: PacketType, channel: Channel) -> Result<(), RelayClientError> {
+    fn send_packet(&mut self, packet_type: Packet, channel: Channel) -> Result<(), RelayClientError> {
         let transport = self.transport.as_mut().ok_or(
             RelayClientError::TransportNotInitialized
         )?;

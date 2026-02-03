@@ -1,4 +1,4 @@
-use crate::protocol::packet::RoomInfo;
+use nt_proto::packet::RoomInfo;
 use crate::transport::common::Channel;
 
 #[derive(Debug)]

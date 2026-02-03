@@ -9,6 +9,8 @@
 addons/nodetunnel/bin/*.so
 addons/nodetunnel/bin/*.dll
 addons/nodetunnel/bin/*.dylib
+addons/nodetunnel/bin/*.d
+addons/nodetunnel/bin/*.rlib
 
 # Rust build artifacts
 **/target

@@ -1,8 +1,8 @@
 use std::error::Error;
 use std::time::Duration;
 use tracing::{debug, info, warn};
+use nt_proto::packet::Packet;
 use crate::config::loader::Config;
-use crate::protocol::packet::Packet;
 use crate::relay::apps::Apps;
 use crate::relay::clients::{ClientState, Clients};
 use crate::relay::handlers::auth::AuthHandler;

@@ -1,5 +1,5 @@
 use tracing::warn;
-use crate::protocol::packet::Packet;
+use nt_proto::packet::Packet;
 use crate::relay::apps::Apps;
 use crate::udp::common::TransferChannel;
 use crate::udp::paper_interface::PaperInterface;

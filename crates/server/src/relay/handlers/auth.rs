@@ -1,8 +1,8 @@
 use std::error::Error;
 use reqwest::StatusCode;
 use tracing::warn;
+use nt_proto::packet::Packet;
 use crate::config::loader::Config;
-use crate::protocol::packet::Packet;
 use crate::relay::apps::Apps;
 use crate::relay::clients::{ClientState, Clients};
 use crate::udp::common::TransferChannel;

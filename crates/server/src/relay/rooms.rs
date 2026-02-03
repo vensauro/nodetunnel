@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use rand::{rng, Rng};
-use crate::protocol::packet::RoomInfo;
+use nt_proto::packet::RoomInfo;
 
 const ID_CHARS: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ123456789";
 const ID_LENGTH: usize = 5;

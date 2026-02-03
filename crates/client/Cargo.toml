@@ -11,3 +11,4 @@ crate-type = ["cdylib"]
 godot = { version = "0.4.3", features = ["api-4-2", "experimental-threads"] }
 thiserror = "2.0.17"
 paperudp = { git = "https://github.com/curtjs/paperudp.git" }
+nt_proto = { path = "../protocol" }

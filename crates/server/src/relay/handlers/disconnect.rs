@@ -1,5 +1,5 @@
 use tracing::{info, warn};
-use crate::protocol::packet::Packet;
+use nt_proto::packet::Packet;
 use crate::relay::apps::Apps;
 use crate::relay::clients::{ClientState, Clients};
 use crate::relay::handlers::room::RoomHandler;
