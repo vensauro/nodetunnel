@@ -587,6 +587,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "nt_server"
+version = "0.1.0"
+dependencies = [
+ "dotenvy",
+ "envy",
+ "paperudp",
+ "rand",
+ "reqwest",
+ "serde",
+ "thiserror",
+ "tokio",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -779,23 +796,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed2bf2547551a7053d6fdfafda3f938979645c44812fbfcda098faae3f1a362d"
 dependencies = [
  "bitflags",
-]
-
-[[package]]
-name = "relay-server"
-version = "0.1.0"
-dependencies = [
- "dotenvy",
- "envy",
- "paperudp",
- "rand",
- "reqwest",
- "serde",
- "thiserror",
- "tokio",
- "toml",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

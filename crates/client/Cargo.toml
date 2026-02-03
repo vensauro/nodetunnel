@@ -1,10 +1,10 @@
 [package]
-name = "nodetunnel"
+name = "nt_client"
 version = "0.1.0"
 edition = "2024"
 
 [lib]
-name = "nodetunnel"
+name = "nt_client"
 crate-type = ["cdylib"]
 
 [dependencies]
