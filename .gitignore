@@ -13,9 +13,5 @@ addons/nodetunnel/bin/*.dylib
 # Rust build artifacts
 src/target/
 
-# Test project
-test.gd
-test.gd.uid
-test.tscn
-project.godot
-*.uid
+# MacOS
+**/.DS_Store
