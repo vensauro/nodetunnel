@@ -1,0 +1,14 @@
+[package]
+name = "nt_client"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "nt_client"
+crate-type = ["cdylib"]
+
+[dependencies]
+godot = { version = "0.4.3", features = ["api-4-2", "experimental-threads"] }
+thiserror = "2.0.17"
+paperudp = { git = "https://github.com/curtjs/paperudp.git" }
+nt_proto = { path = "../protocol" }

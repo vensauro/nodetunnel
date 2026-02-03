@@ -9,12 +9,13 @@
 addons/nodetunnel/bin/*.so
 addons/nodetunnel/bin/*.dll
 addons/nodetunnel/bin/*.dylib
+addons/nodetunnel/bin/*.d
+addons/nodetunnel/bin/*.rlib
 
 # Rust build artifacts
-src/target/
+**/target
 
-# Test project
-project.godot
-test.gd
-test.gd.uid
-test.tscn
+# MacOS
+**/.DS_Store
+
+.env
