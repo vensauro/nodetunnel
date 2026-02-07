@@ -1,7 +1,6 @@
 name: Build NodeTunnel Plugin
 
 on:
-  workflow_dispatch:
   push:
     branches: [ main, develop ]
   pull_request:
@@ -107,40 +106,37 @@ jobs:
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
-      - name: Setup Android NDK
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r26c
-          add-to-path: true
-
-      - name: Configure Cargo for Android
+      - name: Install dependencies
         run: |
-          mkdir -p ~/.cargo
-          cat >> ~/.cargo/config.toml << EOF
-          [target.aarch64-linux-android]
-          linker = "${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android30-clang"
-          
-          [target.armv7-linux-androideabi]
-          linker = "${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi30-clang"
-          
-          [target.x86_64-linux-android]
-          linker = "${{ env.ANDROID_NDK_HOME }}/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android30-clang"
-          EOF
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: |
+          NDK_VERSION="26.1.10909125"
+          sdkmanager --install "ndk;${NDK_VERSION}"
+          echo "ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" >> $GITHUB_ENV
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
 
       - name: Build Android ARM64
         run: |
           cd crates/client
-          cargo build --release --target aarch64-linux-android
+          cargo ndk -t arm64-v8a build --release
 
       - name: Build Android ARMv7
         run: |
           cd crates/client
-          cargo build --release --target armv7-linux-androideabi
+          cargo ndk -t armeabi-v7a build --release
 
       - name: Build Android x86_64
         run: |
           cd crates/client
-          cargo build --release --target x86_64-linux-android
+          cargo ndk -t x86_64 build --release
 
       - name: Copy Android libs to addons
         run: |
