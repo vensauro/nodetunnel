@@ -93,8 +93,12 @@ impl NodeTunnelPeer {
     }
 
     #[func]
-    fn host_room(&mut self, public: bool, metadata: String) -> Error {
-        match self.relay_client.req_create_room(public, metadata) {
+    fn host_room(
+        &mut self,
+        public: bool,
+        #[opt(default="")] metadata: GString
+    ) -> Error {
+        match self.relay_client.req_create_room(public, metadata.to_string()) {
             Ok(_) => Error::OK,
             Err(e) => {
                 godot_error!("[NodeTunnel] Failed to create room: {}", e);
