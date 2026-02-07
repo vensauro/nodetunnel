@@ -1,12 +1,14 @@
+use std::fs::metadata;
 use std::net::ToSocketAddrs;
 use std::time::{Duration, Instant};
-use godot::builtin::{Array, Callable, VarDictionary, GString, PackedByteArray, Variant};
+use godot::builtin::{Array, Callable, VarDictionary, GString, PackedByteArray, Variant, Signal};
 use godot::prelude::{godot_api, GodotClass};
 use godot::classes::{IMultiplayerPeerExtension, MultiplayerPeerExtension};
 use godot::classes::multiplayer_peer::{ConnectionStatus, TransferMode};
-use godot::global::{godot_error, godot_warn, Error};
+use godot::global::{godot_error, godot_print, godot_warn, Error};
 use godot::meta::ToGodot;
 use godot::obj::{Base, WithUserSignals};
+use godot::task;
 use crate::relay_client::client::RelayClient;
 use crate::relay_client::events::RelayEvent;
 use crate::transport::client::ClientTransport;
@@ -18,6 +20,11 @@ struct GamePacket {
     transfer_mode: TransferMode,
 }
 
+enum PendingOp {
+    HostRoom { public: bool, metadata: String },
+    JoinRoom { host_id: String, metadata: String },
+}
+
 #[derive(GodotClass)]
 #[class(tool, base=MultiplayerPeerExtension)]
 struct NodeTunnelPeer {
@@ -27,6 +34,7 @@ struct NodeTunnelPeer {
     room_id: GString,
     #[var]
     join_validation: Callable,
+    pending_operation: Option<PendingOp>,
     connection_status: ConnectionStatus,
     target_peer: i32,
     transfer_mode: TransferMode,
@@ -98,12 +106,28 @@ impl NodeTunnelPeer {
         public: bool,
         #[opt(default="")] metadata: GString
     ) -> Error {
-        match self.relay_client.req_create_room(public, metadata.to_string()) {
-            Ok(_) => Error::OK,
-            Err(e) => {
-                godot_error!("[NodeTunnel] Failed to create room: {}", e);
-                Error::from(Error::ERR_CANT_CREATE)
+        let op = PendingOp::HostRoom {
+            public,
+            metadata: metadata.to_string(),
+        };
+
+        match self.connection_status {
+            ConnectionStatus::CONNECTED => {
+                // Send request immediately
+                match self.relay_client.req_create_room(public, metadata.to_string()) {
+                    Ok(_) => Error::OK,
+                    Err(e) => {
+                        godot_error!("[NodeTunnel] Failed to create room: {}", e);
+                        Error::from(Error::ERR_CANT_CREATE)
+                    }
+                }
             }
+            ConnectionStatus::CONNECTING => {
+                // Cache and send later
+                self.pending_operation = Some(op);
+                Error::OK
+            }
+            _ => Error::ERR_UNCONFIGURED
         }
     }
 
@@ -111,7 +135,6 @@ impl NodeTunnelPeer {
     fn get_rooms(&mut self) -> Error {
         match self.relay_client.req_rooms() {
             Ok(_) => {
-
                 Error::OK
             }
             Err(e) => {
@@ -127,12 +150,28 @@ impl NodeTunnelPeer {
         host_id: String,
         #[opt(default="")] metadata: GString,
     ) -> Error {
-        match self.relay_client.req_join_room(host_id, metadata.to_string()) {
-            Ok(_) => Error::OK,
-            Err(e) => {
-                godot_error!("[NodeTunnel] Failed to join room: {}", e);
-                Error::from(Error::ERR_CANT_CREATE)
+        let op = PendingOp::JoinRoom {
+            host_id: host_id.clone(),
+            metadata: metadata.to_string(),
+        };
+
+        match self.connection_status {
+            ConnectionStatus::CONNECTED => {
+                // Send request immediately
+                match self.relay_client.req_join_room(host_id, metadata.to_string()) {
+                    Ok(_) => Error::OK,
+                    Err(e) => {
+                        godot_error!("[NodeTunnel] Failed to join room: {}", e);
+                        Error::from(Error::ERR_CANT_CREATE)
+                    }
+                }
             }
+            ConnectionStatus::CONNECTING => {
+                // Cache and send later
+                self.pending_operation = Some(op);
+                Error::OK
+            }
+            _ => Error::ERR_UNCONFIGURED
         }
     }
 
@@ -159,7 +198,22 @@ impl NodeTunnelPeer {
                 }
             },
             RelayEvent::Authenticated => {
-                self.signals().authenticated().emit();
+                godot_print!("[NodeTunnel] Client authenticated with relay server");
+
+                if let Some(op) = self.pending_operation.take() {
+                    match op {
+                        PendingOp::HostRoom { public, metadata } => {
+                            if let Err(e) = self.relay_client.req_create_room(public, metadata) {
+                                godot_error!("[NodeTunnel] Failed to create room: {}", e);
+                            }
+                        }
+                        PendingOp::JoinRoom { host_id, metadata } => {
+                            if let Err(e) = self.relay_client.req_join_room(host_id, metadata) {
+                                godot_error!("[NodeTunnel] Failed to join room: {}", e);
+                            }
+                        }
+                    }
+                }
             }
             RelayEvent::RoomsReceived { rooms } => {
                 let mut room_array = Array::new();
@@ -244,6 +298,7 @@ impl IMultiplayerPeerExtension for NodeTunnelPeer {
             app_id: "".to_string(),
             room_id: "".to_godot(),
             join_validation: Callable::invalid(),
+            pending_operation: None,
             unique_id: 0,
             connection_status: ConnectionStatus::DISCONNECTED,
             target_peer: 0,
