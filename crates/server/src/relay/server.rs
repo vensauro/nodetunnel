@@ -165,6 +165,12 @@ impl RelayServer {
                     &mut self.apps,
                     &mut self.clients,
                 ).recv_join_res(client_app_id, *target_id, client_room_id, allowed).await,
+            Packet::ReqRooms =>
+                RoomHandler::new(
+                    &mut self.udp,
+                    &mut self.apps,
+                    &mut self.clients,
+                ).send_rooms(from_client_id, client_app_id).await,
             Packet::GameData { from_peer, data } => {
                 GameDataHandler::new(
                     &mut self.udp,
