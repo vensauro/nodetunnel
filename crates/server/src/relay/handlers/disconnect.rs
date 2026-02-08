@@ -99,7 +99,11 @@ impl<'a> DisconnectHandler<'a> {
         }
 
         for peer_id in other_peers {
-            self.send_packet(peer_id, &Packet::PeerLeftRoom { peer_id: peer_godot_id }, TransferChannel::Reliable).await;
+            self.send_packet(
+                peer_id,
+                &Packet::PeerLeftRoom { peer_id: peer_godot_id, forced: false },
+                TransferChannel::Reliable
+            ).await;
         }
     }
 

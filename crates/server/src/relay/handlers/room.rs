@@ -87,6 +87,35 @@ impl<'a> RoomHandler<'a> {
         }
     }
 
+    pub async fn kick_peer(&mut self, app_id: u64, room_id: u64, sender_id: u64, target_peer: i32, forced: bool) {
+        let app = self.apps.get_mut(app_id).expect("App exists");
+        let Some(room) = app.rooms.get_mut(room_id) else {
+            self.send_err(sender_id, "Room not found").await;
+            return;
+        };
+
+        if room.get_host() != sender_id {
+            self.send_err(sender_id, "Client is not room host").await;
+            return;
+        }
+
+        if let Some(target_client) = room.gd_to_client(target_peer) {
+            self.send_packet(
+                target_client,
+                &Packet::ForceDisconnect,
+                TransferChannel::Reliable
+            ).await;
+
+            self.send_packet(
+                sender_id,
+                &Packet::PeerLeftRoom { peer_id: target_peer, forced },
+                TransferChannel::Reliable,
+            ).await;
+        } else {
+            self.send_err(sender_id, "Requested client not found").await;
+        }
+    }
+
     pub(crate) async fn recv_join_req(&mut self, sender_id: u64, app_id: u64, room_id: &str, metadata: &str) {
         let host_id = {
             let Some(app) = self.apps.get_mut(app_id) else {

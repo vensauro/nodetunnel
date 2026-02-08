@@ -25,6 +25,13 @@ enum PendingOp {
     GetRooms
 }
 
+enum ClientState {
+    Disconnected,
+    Connecting,
+    Authenticated,
+    InRoom,
+}
+
 #[derive(GodotClass)]
 #[class(tool, base=MultiplayerPeerExtension)]
 struct NodeTunnelPeer {
@@ -36,6 +43,7 @@ struct NodeTunnelPeer {
     join_validation: Callable,
     pending_operations: Vec<PendingOp>,
     connection_status: ConnectionStatus,
+    client_state: ClientState,
     target_peer: i32,
     transfer_mode: TransferMode,
     incoming_packets: Vec<GamePacket>,
@@ -93,6 +101,7 @@ impl NodeTunnelPeer {
 
         self.relay_client.connect(transport);
         self.connection_status = ConnectionStatus::CONNECTING;
+        self.client_state = ClientState::Connecting;
 
         Error::OK
     }
@@ -108,8 +117,8 @@ impl NodeTunnelPeer {
             metadata: metadata.to_string(),
         };
 
-        match self.connection_status {
-            ConnectionStatus::CONNECTED => {
+        match self.client_state {
+            ClientState::Authenticated => {
                 // Send request immediately
                 match self.relay_client.req_create_room(public, metadata.to_string()) {
                     Ok(_) => Error::OK,
@@ -119,7 +128,7 @@ impl NodeTunnelPeer {
                     }
                 }
             }
-            ConnectionStatus::CONNECTING => {
+            ClientState::Connecting => {
                 // Cache and send later
                 self.pending_operations.push(op);
                 Error::OK
@@ -130,13 +139,13 @@ impl NodeTunnelPeer {
 
     #[func]
     fn get_rooms(&mut self) -> Signal {
-        match self.connection_status {
-            ConnectionStatus::CONNECTED => {
+        match self.client_state {
+            ClientState::Authenticated => {
                 if let Err(e) = self.relay_client.req_rooms() {
                     godot_print!("Failed to request rooms: {e}");
                 }
             }
-            ConnectionStatus::CONNECTING => {
+            ClientState::Connecting => {
                 // Queue it to be sent after authentication
                 self.pending_operations.push(PendingOp::GetRooms);
             }
@@ -159,8 +168,8 @@ impl NodeTunnelPeer {
             metadata: metadata.to_string(),
         };
 
-        match self.connection_status {
-            ConnectionStatus::CONNECTED => {
+        match self.client_state {
+            ClientState::Authenticated => {
                 // Send request immediately
                 match self.relay_client.req_join_room(host_id, metadata.to_string()) {
                     Ok(_) => Error::OK,
@@ -170,7 +179,7 @@ impl NodeTunnelPeer {
                     }
                 }
             }
-            ConnectionStatus::CONNECTING => {
+            ClientState::Connecting => {
                 // Cache and send later
                 self.pending_operations.push(op);
                 Error::OK
@@ -204,6 +213,8 @@ impl NodeTunnelPeer {
             },
             RelayEvent::Authenticated => {
                 godot_print!("[NodeTunnel] Client authenticated with relay server");
+
+                self.client_state = ClientState::Authenticated;
 
                 let ops = mem::take(&mut self.pending_operations);
 
@@ -276,8 +287,10 @@ impl NodeTunnelPeer {
                     self.signals().peer_connected().emit(peer_id as i64);
                 }
             },
-            RelayEvent::PeerLeftRoom { peer_id } => {
-                self.signals().peer_disconnected().emit(peer_id as i64);
+            RelayEvent::PeerLeftRoom { peer_id, forced } => {
+                if !forced {
+                    self.signals().peer_disconnected().emit(peer_id as i64);
+                }
             },
             RelayEvent::GameDataReceived { channel, from_peer, data } => {
                 let transfer_mode = match channel {
@@ -316,6 +329,7 @@ impl IMultiplayerPeerExtension for NodeTunnelPeer {
             pending_operations: vec![],
             unique_id: 0,
             connection_status: ConnectionStatus::DISCONNECTED,
+            client_state: ClientState::Disconnected,
             target_peer: 0,
             transfer_mode: TransferMode::UNRELIABLE,
             incoming_packets: vec![],
@@ -440,7 +454,16 @@ impl IMultiplayerPeerExtension for NodeTunnelPeer {
         self.connection_status = ConnectionStatus::DISCONNECTED;
     }
 
-    fn disconnect_peer(&mut self, _p_peer: i32, _p_force: bool) {}
+    fn disconnect_peer(&mut self, p_peer: i32, p_force: bool) {
+        if !self.is_server() {
+            godot_warn!("[NodeTunnel] Non-host attempted to kick another peer");
+            return;
+        }
+
+        if let Err(e) = self.relay_client.req_kick_peer(p_peer, p_force) {
+            godot_error!("[NodeTunnel] Failed to kick {p_peer} from room: {e}")
+        }
+    }
 
     fn get_unique_id(&self) -> i32 {
         self.unique_id

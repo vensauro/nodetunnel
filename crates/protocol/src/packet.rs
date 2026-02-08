@@ -1,5 +1,5 @@
 use crate::error::ProtocolError;
-use crate::ids::{AUTHENTICATE, CLIENT_AUTHENTICATED, CONNECTED_TO_ROOM, CREATE_ROOM, ERROR_PACKET, FORCE_DISCONNECT, GAME_DATA, GET_ROOMS, JOIN_RES, JOIN_ROOM, PEER_JOINED, PEER_JOIN_ATTEMPT, PEER_LEFT, REQ_ROOMS, UPDATE_ROOM};
+use crate::ids::{AUTHENTICATE, CLIENT_AUTHENTICATED, CONNECTED_TO_ROOM, CREATE_ROOM, ERROR_PACKET, FORCE_DISCONNECT, GAME_DATA, GET_ROOMS, JOIN_RES, JOIN_ROOM, KICK_PEER_REQ, PEER_JOINED, PEER_JOIN_ATTEMPT, PEER_LEFT, REQ_ROOMS, UPDATE_ROOM};
 use crate::serialize::{push_bool, push_i32, push_string, push_u64, push_vec_room_info, read_bool, read_i32, read_string, read_u64, read_vec_room_info};
 
 #[derive(Debug, Clone)]
@@ -21,7 +21,8 @@ pub enum Packet {
     ConnectedToRoom { room_id: String, peer_id: i32 },
     PeerJoinAttempt { target_id: u64, metadata: String },
     PeerJoinedRoom { peer_id: i32 },
-    PeerLeftRoom { peer_id: i32 },
+    PeerLeftRoom { peer_id: i32, forced: bool },
+    KickPeerReq { peer_id: i32, forced: bool },
     GameData { from_peer: i32, data: Vec<u8> },
     ForceDisconnect,
     Error { error_code: i32, error_message: String }
@@ -83,8 +84,15 @@ impl Packet {
             }
 
             PEER_LEFT => {
-                let (peer_id, _) = read_i32(rest)?;
-                Packet::PeerLeftRoom { peer_id }
+                let (peer_id, r) = read_i32(rest)?;
+                let (forced, _) = read_bool(r)?;
+                Packet::PeerLeftRoom { peer_id, forced }
+            }
+
+            KICK_PEER_REQ => {
+                let (peer_id, r) = read_i32(rest)?;
+                let (forced, _) = read_bool(r)?;
+                Packet::KickPeerReq { peer_id, forced }
             }
 
             GAME_DATA => {
@@ -189,9 +197,16 @@ impl Packet {
                 push_i32(&mut buf, *peer_id);
             }
 
-            Packet::PeerLeftRoom { peer_id } => {
+            Packet::KickPeerReq { peer_id, forced: force } => {
+                buf.push(KICK_PEER_REQ);
+                push_i32(&mut buf, *peer_id);
+                push_bool(&mut buf, *force)
+            }
+
+            Packet::PeerLeftRoom { peer_id, forced } => {
                 buf.push(PEER_LEFT);
                 push_i32(&mut buf, *peer_id);
+                push_bool(&mut buf, *forced);
             }
 
             Packet::GameData { from_peer: peer_id, data } => {

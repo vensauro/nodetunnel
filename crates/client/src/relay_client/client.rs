@@ -88,8 +88,8 @@ impl RelayClient {
                     events.push(RelayEvent::PeerJoinAttempt { client_id: target_id, metadata } ),
                 Packet::PeerJoinedRoom { peer_id } =>
                     events.push(RelayEvent::PeerJoinedRoom { peer_id }),
-                Packet::PeerLeftRoom { peer_id } =>
-                    events.push(RelayEvent::PeerLeftRoom { peer_id }),
+                Packet::PeerLeftRoom { peer_id, forced } =>
+                    events.push(RelayEvent::PeerLeftRoom { peer_id, forced }),
                 Packet::GameData { from_peer, data } => {
                     events.push(RelayEvent::GameDataReceived { data, from_peer, channel });
                 }
@@ -151,6 +151,15 @@ impl RelayClient {
     pub fn req_update_room(&mut self, room_id: &str, metadata: &str) -> Result<(), RelayClientError> {
         self.send_packet(
             Packet::UpdateRoom { room_id: room_id.to_string(), metadata: metadata.to_string() },
+            Channel::Reliable
+        )?;
+
+        Ok(())
+    }
+
+    pub fn req_kick_peer(&mut self, target_peer: i32, forced: bool) -> Result<(), RelayClientError> {
+        self.send_packet(
+            Packet::KickPeerReq { peer_id: target_peer, forced },
             Channel::Reliable
         )?;
 

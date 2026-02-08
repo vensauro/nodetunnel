@@ -10,7 +10,7 @@ pub enum RelayEvent {
     PeerJoinAttempt { client_id: u64, metadata: String },
     PeerJoinedRoom { peer_id: i32 },
     GameDataReceived { channel: Channel, from_peer: i32, data: Vec<u8> },
-    PeerLeftRoom { peer_id: i32 },
+    PeerLeftRoom { peer_id: i32, forced: bool },
     ForceDisconnect,
     Error { error_code: i32, error_message: String },
 }

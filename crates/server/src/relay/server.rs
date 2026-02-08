@@ -152,6 +152,13 @@ impl RelayServer {
     /// Delegates packets to various handlers when the client is in a room.
     async fn handle_in_room_packet(&mut self, from_client_id: u64, client_app_id: u64, client_room_id: u64, packet: &Packet, channel: &TransferChannel) {
         match packet {
+            Packet::KickPeerReq { peer_id, forced } => {
+                RoomHandler::new(
+                    &mut self.udp,
+                    &mut self.apps,
+                    &mut self.clients,
+                ).kick_peer(client_app_id, client_room_id, from_client_id, *peer_id, *forced).await;
+            }
             Packet::UpdateRoom { metadata, room_id: _room_id } => {
                 RoomHandler::new(
                     &mut self.udp,
