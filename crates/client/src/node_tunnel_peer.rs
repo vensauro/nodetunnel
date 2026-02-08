@@ -1,4 +1,4 @@
-use std::fs::metadata;
+use std::mem;
 use std::net::ToSocketAddrs;
 use std::time::{Duration, Instant};
 use godot::builtin::{Array, Callable, VarDictionary, GString, PackedByteArray, Variant, Signal};
@@ -8,7 +8,6 @@ use godot::classes::multiplayer_peer::{ConnectionStatus, TransferMode};
 use godot::global::{godot_error, godot_print, godot_warn, Error};
 use godot::meta::ToGodot;
 use godot::obj::{Base, WithUserSignals};
-use godot::task;
 use crate::relay_client::client::RelayClient;
 use crate::relay_client::events::RelayEvent;
 use crate::transport::client::ClientTransport;
@@ -23,6 +22,7 @@ struct GamePacket {
 enum PendingOp {
     HostRoom { public: bool, metadata: String },
     JoinRoom { host_id: String, metadata: String },
+    GetRooms
 }
 
 #[derive(GodotClass)]
@@ -34,7 +34,7 @@ struct NodeTunnelPeer {
     room_id: GString,
     #[var]
     join_validation: Callable,
-    pending_operation: Option<PendingOp>,
+    pending_operations: Vec<PendingOp>,
     connection_status: ConnectionStatus,
     target_peer: i32,
     transfer_mode: TransferMode,
@@ -48,22 +48,19 @@ struct NodeTunnelPeer {
 #[godot_api]
 impl NodeTunnelPeer {
     #[signal]
-    fn authenticated();
-
-    #[signal]
     fn error(error_message: String);
 
     #[signal]
     fn room_connected();
 
     #[signal]
-    fn forced_disconnect();
+    fn connection_lost();
 
     #[signal]
     fn rooms_received(rooms: Array<Variant>);
 
     #[func]
-    fn connect_to_relay(&mut self, relay_address: String, app_id: String) -> Error {
+    fn initialize(&mut self, relay_address: String, app_id: String) -> Error {
         self.app_id = app_id;
 
         let socket_addr = match relay_address.to_socket_addrs() {
@@ -124,7 +121,7 @@ impl NodeTunnelPeer {
             }
             ConnectionStatus::CONNECTING => {
                 // Cache and send later
-                self.pending_operation = Some(op);
+                self.pending_operations.push(op);
                 Error::OK
             }
             _ => Error::ERR_UNCONFIGURED
@@ -132,16 +129,23 @@ impl NodeTunnelPeer {
     }
 
     #[func]
-    fn get_rooms(&mut self) -> Error {
-        match self.relay_client.req_rooms() {
-            Ok(_) => {
-                Error::OK
+    fn get_rooms(&mut self) -> Signal {
+        match self.connection_status {
+            ConnectionStatus::CONNECTED => {
+                if let Err(e) = self.relay_client.req_rooms() {
+                    godot_print!("Failed to request rooms: {e}");
+                }
             }
-            Err(e) => {
-                godot_error!("[NodeTunnel] Failed to get rooms: {}", e);
-                Error::from(Error::ERR_CANT_CREATE)
+            ConnectionStatus::CONNECTING => {
+                // Queue it to be sent after authentication
+                self.pending_operations.push(PendingOp::GetRooms);
+            }
+            _ => {
+                godot_error!("[NodeTunnel] Not connected to relay");
             }
         }
+
+        self.signals().rooms_received().to_untyped()
     }
 
     #[func]
@@ -168,7 +172,7 @@ impl NodeTunnelPeer {
             }
             ConnectionStatus::CONNECTING => {
                 // Cache and send later
-                self.pending_operation = Some(op);
+                self.pending_operations.push(op);
                 Error::OK
             }
             _ => Error::ERR_UNCONFIGURED
@@ -189,6 +193,8 @@ impl NodeTunnelPeer {
     fn handle_relay_event(&mut self, event: RelayEvent) {
         match event {
             RelayEvent::ConnectedToServer => {
+                godot_print!("[NodeTunnel] Client connected to relay server");
+
                 match self.relay_client.req_auth(self.app_id.clone()) {
                     Err(e) => {
                         godot_error!("[NodeTunnel] Failed to authenticate: {}", e);
@@ -200,7 +206,9 @@ impl NodeTunnelPeer {
             RelayEvent::Authenticated => {
                 godot_print!("[NodeTunnel] Client authenticated with relay server");
 
-                if let Some(op) = self.pending_operation.take() {
+                let ops = mem::take(&mut self.pending_operations);
+
+                for op in ops {
                     match op {
                         PendingOp::HostRoom { public, metadata } => {
                             if let Err(e) = self.relay_client.req_create_room(public, metadata) {
@@ -210,6 +218,11 @@ impl NodeTunnelPeer {
                         PendingOp::JoinRoom { host_id, metadata } => {
                             if let Err(e) = self.relay_client.req_join_room(host_id, metadata) {
                                 godot_error!("[NodeTunnel] Failed to join room: {}", e);
+                            }
+                        }
+                        PendingOp::GetRooms => {
+                            if let Err(e) = self.relay_client.req_rooms() {
+                                godot_error!("[NodeTunnel] Failed to request room list: {}", e);
                             }
                         }
                     }
@@ -280,7 +293,7 @@ impl NodeTunnelPeer {
                 if self.connection_status == ConnectionStatus::CONNECTED {
                     godot_warn!("[NodeTunnel] Client was forcibly disconnected from relay");
                     self.close();
-                    self.signals().forced_disconnect().emit();
+                    self.signals().connection_lost().emit();
                 }
             },
             RelayEvent::Error { error_code, error_message } => {
@@ -298,7 +311,7 @@ impl IMultiplayerPeerExtension for NodeTunnelPeer {
             app_id: "".to_string(),
             room_id: "".to_godot(),
             join_validation: Callable::invalid(),
-            pending_operation: None,
+            pending_operations: vec![],
             unique_id: 0,
             connection_status: ConnectionStatus::DISCONNECTED,
             target_peer: 0,
