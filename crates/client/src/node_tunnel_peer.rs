@@ -48,7 +48,7 @@ struct NodeTunnelPeer {
 #[godot_api]
 impl NodeTunnelPeer {
     #[signal]
-    fn error(error_message: String);
+    fn response_error(error_message: String);
 
     #[signal]
     fn room_connected();
@@ -198,7 +198,6 @@ impl NodeTunnelPeer {
                 match self.relay_client.req_auth(self.app_id.clone()) {
                     Err(e) => {
                         godot_error!("[NodeTunnel] Failed to authenticate: {}", e);
-                        self.signals().error().emit(e.to_string());
                     }
                     _ => {}
                 }
@@ -298,7 +297,7 @@ impl NodeTunnelPeer {
             },
             RelayEvent::Error { error_code, error_message } => {
                 godot_error!("[NodeTunnel] Relay error {}: {}", error_code, error_message);
-                self.signals().error().emit(error_message);
+                self.signals().response_error().emit(error_message);
             }
         }
     }
