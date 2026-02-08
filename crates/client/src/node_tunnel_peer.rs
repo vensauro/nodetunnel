@@ -228,6 +228,8 @@ impl NodeTunnelPeer {
                 }
             }
             RelayEvent::RoomsReceived { rooms } => {
+                godot_print!("[NodeTunnel] Client fetched rooms");
+
                 let mut room_array = Array::new();
 
                 for room in rooms {
@@ -243,6 +245,7 @@ impl NodeTunnelPeer {
                 )
             }
             RelayEvent::RoomJoined { room_id, peer_id } => {
+                godot_print!("[NodeTunnel] Client connected to room");
                 self.connection_status = ConnectionStatus::CONNECTED;
                 self.unique_id = peer_id;
                 self.room_id = room_id.to_godot();
