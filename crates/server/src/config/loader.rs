@@ -30,10 +30,10 @@ pub fn load_config() -> Result<Config, ConfigError> {
     };
 
     if cfg.allowed_versions.is_empty() {
-        warn!("ALLOWED_VERSIONS is empty; all client versions will be treated as allowed unless you enforce otherwise");
+        warn!("ALLOWED_VERSIONS is empty, all clients will be allowed");
     }
     if cfg.remote_whitelist_endpoint.is_empty() && cfg.whitelist.is_empty() {
-        warn!("both REMOTE_WHITELIST_ENDPOINT and WHITELIST are empty; no apps will be allowed unless your code treats empty as allow-all");
+        warn!("both REMOTE_WHITELIST_ENDPOINT and WHITELIST are empty, all app IDs will be allowed");
     }
 
     Ok(cfg)
