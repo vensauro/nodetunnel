@@ -26,7 +26,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .expect("setting default subscriber failed");
 
     dotenvy::dotenv().ok();
-    let config = config::loader::load_config("config.toml")?;
+    let config = config::loader::load_config()?;
+    println!("{:?}", config.allowed_versions);
     let addr: SocketAddr = config.udp_bind_address
         .to_socket_addrs()?
         .next()
