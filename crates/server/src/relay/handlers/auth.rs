@@ -66,7 +66,7 @@ impl<'a> AuthHandler<'a> {
 
     fn is_version_allowed(&self, version: &str) -> bool {
         let versions = &self.config.allowed_versions;
-        versions.contains(&version.to_string())
+        versions.contains(&version.to_string()) || versions.is_empty()
     }
 
     async fn app_allowed(&mut self, app: &str) -> bool {
