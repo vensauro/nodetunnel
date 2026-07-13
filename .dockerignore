@@ -1,0 +1,9 @@
+.git
+**/target
+**/.DS_Store
+**/.env
+addons/
+gdtest/
+scripts/
+**/*.uid
+.godot/

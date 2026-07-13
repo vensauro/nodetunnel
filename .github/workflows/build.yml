@@ -13,6 +13,17 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  check-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check server compiles
+        run: cargo check -p nt_server
+
   build-windows:
     runs-on: windows-latest
     steps:
