@@ -8,7 +8,7 @@ use std::error::Error;
 use std::net::{SocketAddr, ToSocketAddrs};
 use tokio::signal;
 use tracing::{error, info};
-use tracing_subscriber::FmtSubscriber;
+use tracing_subscriber::EnvFilter;
 use crate::relay::server::RelayServer;
 use crate::udp::paper_interface::PaperInterface;
 
@@ -18,12 +18,12 @@ mod relay;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(tracing::Level::INFO)
-        .finish();
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info"));
 
-    tracing::subscriber::set_global_default(subscriber)
-        .expect("setting default subscriber failed");
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .init();
 
     dotenvy::dotenv().ok();
     let config = config::loader::load_config()?;

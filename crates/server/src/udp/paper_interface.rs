@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 use paperudp::channel::DecodeResult;
 use paperudp::packet::PacketType;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 use crate::udp::error::UdpError;
 use crate::udp::sessions::ConnectionManager;
 use super::common::{ServerEvent, TransferChannel};
@@ -41,6 +41,7 @@ impl PaperInterface {
                             let (session, is_new) = self.connection_manager.get_or_create(addr);
 
                             if is_new {
+                                info!("client {} connected from {}", session.id, addr);
                                 self.pending_events.push(ServerEvent::ClientConnected {
                                     client_id: session.id
                                 })
@@ -54,7 +55,10 @@ impl PaperInterface {
                         match res {
                             DecodeResult::Unreliable { payload } => {
                                 for p in payload {
-                                    if p == [3u8] { continue; }
+                                    if p == [3u8] {
+                                        debug!("keepalive from client {}", session_id);
+                                        continue;
+                                    }
                                     self.pending_events.push(ServerEvent::PacketReceived {
                                         client_id: session_id,
                                         data: p,
@@ -79,7 +83,7 @@ impl PaperInterface {
                             }
                             DecodeResult::Ack { .. } => {}
                             DecodeResult::None => {
-                                debug!("unknown packet: {:?}", &buf[..len]);
+                                warn!("client {} sent an undecodable packet; dropping session", session_id);
                                 self.remove_client(&session_id);
                             }
                         }

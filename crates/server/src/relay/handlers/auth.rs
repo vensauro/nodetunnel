@@ -1,6 +1,6 @@
 use std::error::Error;
 use reqwest::StatusCode;
-use tracing::warn;
+use tracing::{info, warn};
 use nt_proto::packet::Packet;
 use crate::config::loader::Config;
 use crate::relay::apps::Apps;
@@ -34,8 +34,11 @@ impl<'a> AuthHandler<'a> {
     }
 
     pub async fn authenticate_client(&mut self, sender_id: u64, app_token: &str, version: &str) {
+        info!("client {} attempting auth (app={}, version={})", sender_id, app_token, version);
+
         // Check version
         if !self.is_version_allowed(version) {
+            warn!("client {} rejected: version {} not allowed", sender_id, version);
             let msg = format!("Version {version} is not allowed.");
             self.send_err(sender_id, &msg).await;
             self.force_disconnect(sender_id).await;
@@ -44,6 +47,7 @@ impl<'a> AuthHandler<'a> {
 
         // Check app whitelist
         if !self.app_allowed(app_token).await {
+            warn!("client {} rejected: app {} not allowed", sender_id, app_token);
             let msg = format!("App token {app_token} is not allowed.");
             self.send_err(sender_id, &msg).await;
             self.force_disconnect(sender_id).await;
@@ -61,6 +65,7 @@ impl<'a> AuthHandler<'a> {
         };
 
         client.state = ClientState::Authenticated { app_id };
+        info!("client {} authenticated (app_id={})", sender_id, app_id);
         self.send_packet(sender_id, &Packet::ClientAuthenticated, TransferChannel::Reliable, ).await;
     }
 

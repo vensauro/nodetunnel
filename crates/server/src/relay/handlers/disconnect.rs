@@ -33,12 +33,20 @@ impl<'a> DisconnectHandler<'a> {
 
     pub async fn handle_disconnect(&mut self, client_id: u64) {
         let Some(client) = self.clients.remove(client_id) else {
-            warn!("unregistered client disconnected");
+            warn!("unregistered client {} disconnected", client_id);
             return;
         };
 
-        if let ClientState::InRoom { app_id, room_id } = client.state {
-            self.handle_room_disconnect(client_id, app_id, room_id).await;
+        match client.state {
+            ClientState::Connected => {
+                info!("client {} disconnected before authenticating", client_id);
+            }
+            ClientState::Authenticated { app_id } => {
+                info!("client {} disconnected while authenticated (app_id={})", client_id, app_id);
+            }
+            ClientState::InRoom { app_id, room_id } => {
+                self.handle_room_disconnect(client_id, app_id, room_id).await;
+            }
         }
     }
 
@@ -77,7 +85,7 @@ impl<'a> DisconnectHandler<'a> {
     }
 
     async fn handle_host_disconnect(&mut self, app_id: u64, room_id: u64, peers_to_kick: Vec<u64>) {
-        info!("host disconnected");
+        info!("host disconnected (app_id={}, room_id={}); removing room and kicking {} peer(s)", app_id, room_id, peers_to_kick.len());
         RoomHandler::new(
             self.udp,
             self.apps,
@@ -91,7 +99,7 @@ impl<'a> DisconnectHandler<'a> {
     }
 
     async fn handle_peer_disconnect(&mut self, app_id: u64, room_id: u64, client_id: u64, peer_godot_id: i32, other_peers: Vec<u64>) {
-        info!("peer disconnected");
+        info!("peer {} disconnected (app_id={}, room_id={}, godot_id={})", client_id, app_id, room_id, peer_godot_id);
         if let Some(app) = self.apps.get_mut(app_id) {
             if let Some(room) = app.rooms.get_mut(room_id) {
                 room.remove_peer(client_id);

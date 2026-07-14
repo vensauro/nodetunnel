@@ -11,6 +11,6 @@ thiserror = "2.0.17"
 rand = "0.10.0"
 paperudp = { git = "https://github.com/curtjs/paperudp.git" }
 tracing = "0.1.43"
-tracing-subscriber = "0.3.22"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 reqwest = { version = "0.13.1", features = ["json"] }
 dotenvy = "0.15.7"

@@ -12,6 +12,11 @@ use crate::relay::handlers::room::RoomHandler;
 use crate::udp::common::{TransferChannel, ServerEvent};
 use crate::udp::paper_interface::PaperInterface;
 
+/// Sessions that have been idle for longer than this are considered dead and removed.
+/// Must be comfortably larger than the client keepalive interval (currently 5s)
+/// to avoid dropping healthy clients.
+const SESSION_IDLE_TIMEOUT: Duration = Duration::from_secs(15);
+
 pub struct RelayServer {
     udp: PaperInterface,
     http_client: reqwest::Client,
@@ -52,8 +57,7 @@ impl RelayServer {
                 }
 
                 _ = cleanup.tick() => {
-                    // TODO: remove magic numbers
-                    for client_id in self.udp.connection_manager.cleanup_sessions(Duration::from_secs(5)) {
+                    for client_id in self.udp.connection_manager.cleanup_sessions(SESSION_IDLE_TIMEOUT) {
                         self.handle_event(ServerEvent::ClientDisconnected { client_id }).await;
                     }
                 }
@@ -70,9 +74,11 @@ impl RelayServer {
     async fn handle_event(&mut self, event: ServerEvent) {
         match event {
             ServerEvent::ClientConnected { client_id } => {
+                debug!("client {} pending authentication", client_id);
                 self.clients.create(client_id);
             }
             ServerEvent::ClientDisconnected { client_id } => {
+                info!("client {} disconnected (session idle > {:?})", client_id, SESSION_IDLE_TIMEOUT);
                 DisconnectHandler::new(
                     &mut self.udp,
                     &mut self.clients,

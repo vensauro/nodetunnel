@@ -1,4 +1,4 @@
-use tracing::warn;
+use tracing::{info, warn};
 use nt_proto::packet::{Packet, RoomInfo};
 use crate::relay::apps::Apps;
 use crate::relay::clients::{ClientState, Clients};
@@ -25,6 +25,7 @@ impl<'a> RoomHandler<'a> {
     }
 
     pub async fn create_room(&mut self, sender_id: u64, app_id: u64, is_public: bool, metadata: &str) {
+        info!("client {} creating room (app_id={}, public={})", sender_id, app_id, is_public);
         let Some(app) = self.apps.get_mut(app_id) else {
             warn!("attempted to create a room for a missing app: {}", app_id);
             return;
@@ -40,6 +41,7 @@ impl<'a> RoomHandler<'a> {
         let peer_id = room.add_peer(sender_id);
 
         client.state = ClientState::InRoom { app_id, room_id: room.id };
+        info!("client {} created room {} (peer_id={})", sender_id, join_code, peer_id);
 
         self.send_packet(
             sender_id,
@@ -52,6 +54,7 @@ impl<'a> RoomHandler<'a> {
     }
 
     pub async fn send_rooms(&mut self, target: u64, app_id: u64) {
+        info!("client {} requested rooms (app_id={})", target, app_id);
         let Some(app) = self.apps.get_mut(app_id) else {
             warn!("attempted to list rooms for a missing app: {}", app_id);
             return;
@@ -117,6 +120,7 @@ impl<'a> RoomHandler<'a> {
     }
 
     pub(crate) async fn recv_join_req(&mut self, sender_id: u64, app_id: u64, room_id: &str, metadata: &str) {
+        info!("client {} requesting to join room {} (app_id={})", sender_id, room_id, app_id);
         let host_id = {
             let Some(app) = self.apps.get_mut(app_id) else {
                 warn!("attempted to handle join request for a missing app: {}", app_id);
@@ -142,6 +146,7 @@ impl<'a> RoomHandler<'a> {
     }
 
     pub(crate) async fn recv_join_res(&mut self, app_id: u64, target_id: u64, room_id: u64, allowed: &bool) {
+        info!("join response for client {} (room_id={}, allowed={})", target_id, room_id, allowed);
         if *allowed {
             let Some(client) = self.clients.get_mut(target_id) else {
                 warn!("attempted to handle join response for a missing client: {}", target_id);
