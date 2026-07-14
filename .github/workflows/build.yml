@@ -116,7 +116,8 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+          targets: aarch64-linux-android,x86_64-linux-android
+          # Re-enable armv7 here when godot-ffi supports 32-bit Android again.
 
       - name: Install dependencies
         run: |
@@ -131,6 +132,7 @@ jobs:
           NDK_VERSION="26.1.10909125"
           sdkmanager --install "ndk;${NDK_VERSION}"
           echo "ANDROID_NDK_ROOT=${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" >> $GITHUB_ENV
 
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
@@ -140,10 +142,12 @@ jobs:
           cd crates/client
           cargo ndk -t arm64-v8a build --release
 
-      - name: Build Android ARMv7
-        run: |
-          cd crates/client
-          cargo ndk -t armeabi-v7a build --release
+      # TODO: Re-enable once godot-ffi supports 32-bit Android. Currently this
+      # fails with compile-time GDExtension ABI size assertions on armv7.
+      # - name: Build Android ARMv7
+      #   run: |
+      #     cd crates/client
+      #     cargo ndk -t armeabi-v7a build --release
 
       - name: Build Android x86_64
         run: |
@@ -153,11 +157,11 @@ jobs:
       - name: Copy Android libs to addons
         run: |
           mkdir -p addons/nodetunnel/bin/android/arm64-v8a
-          mkdir -p addons/nodetunnel/bin/android/armeabi-v7a
           mkdir -p addons/nodetunnel/bin/android/x86_64
+          # mkdir -p addons/nodetunnel/bin/android/armeabi-v7a
           cp target/aarch64-linux-android/release/libnt_client.so addons/nodetunnel/bin/android/arm64-v8a/libnodetunnel.so
-          cp target/armv7-linux-androideabi/release/libnt_client.so addons/nodetunnel/bin/android/armeabi-v7a/libnodetunnel.so
           cp target/x86_64-linux-android/release/libnt_client.so addons/nodetunnel/bin/android/x86_64/libnodetunnel.so
+          # cp target/armv7-linux-androideabi/release/libnt_client.so addons/nodetunnel/bin/android/armeabi-v7a/libnodetunnel.so
 
       - name: Upload Android Artifacts
         uses: actions/upload-artifact@v4
