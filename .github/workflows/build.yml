@@ -3,7 +3,7 @@ name: Build NodeTunnel Plugin
 on:
   workflow_dispatch:
   push:
-    branches: [ main, develop ]
+    branches: [ main, dev ]
   pull_request:
     branches: [ main ]
   release:
